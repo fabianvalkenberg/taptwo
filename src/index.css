@@ -1,0 +1,70 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  /* Prevent bounce/overscroll on iOS */
+  overscroll-behavior: none;
+  /* Use full viewport height including mobile browser chrome */
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Prevent pull-to-refresh and other gestures */
+  overscroll-behavior-y: none;
+  /* Prevent text selection during drag */
+  -webkit-user-select: none;
+  user-select: none;
+  /* Prevent tap highlight on mobile */
+  -webkit-tap-highlight-color: transparent;
+  /* Fix for iOS Safari height */
+  height: 100%;
+  overflow: hidden;
+}
+
+#root {
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Prevent double-tap zoom on iOS */
+* {
+  touch-action: manipulation;
+}
+
+/* Smooth touch interactions */
+button, a, [role="button"] {
+  -webkit-touch-callout: none;
+}
+
+/* Goofy bounce and spin animation for tiles */
+@keyframes goofyBounce {
+  0% {
+    opacity: 0;
+    transform: scale(0) rotate(0deg);
+  }
+  50% {
+    transform: scale(1.2) rotate(180deg);
+  }
+  65% {
+    transform: scale(0.9) rotate(200deg);
+  }
+  80% {
+    transform: scale(1.05) rotate(350deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(360deg);
+  }
+}
+
+.tile-appear {
+  animation: goofyBounce 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+  opacity: 0;
+}
