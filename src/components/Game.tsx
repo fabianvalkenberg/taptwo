@@ -336,12 +336,12 @@ const Game: React.FC = () => {
       onTouchEnd={handleTouchEnd}
     >
       {/* Player 1 Zone - Top */}
-      <div>
+      <div className="flex-shrink-0">
         <PlayerZone player={gameState.player1} position="top" targetRef={player1TargetRef} />
       </div>
 
       {/* Game Info & Grid */}
-      <div className="flex-1 flex flex-col items-center justify-center py-2 px-2 sm:py-4 sm:px-4 relative">
+      <div className="flex-1 flex flex-col items-center justify-center py-2 px-2 sm:py-4 sm:px-4 relative min-h-0">
         {!gameState.gameStarted ? (
           <button
             onClick={startGame}
@@ -397,7 +397,7 @@ const Game: React.FC = () => {
       </div>
 
       {/* Player 2 Zone - Bottom */}
-      <div>
+      <div className="flex-shrink-0">
         <PlayerZone player={gameState.player2} position="bottom" targetRef={player2TargetRef} />
       </div>
 

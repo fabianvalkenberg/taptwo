@@ -11,10 +11,10 @@ interface PlayerZoneProps {
 const PlayerZone: React.FC<PlayerZoneProps> = ({ player, position, targetRef }) => {
   return (
     <div
-      className="w-full py-6 px-4 flex items-center justify-center"
+      className="w-full py-3 px-4 flex items-center justify-center"
       style={{
-        paddingTop: position === 'top' ? 'max(1.5rem, env(safe-area-inset-top))' : undefined,
-        paddingBottom: position === 'bottom' ? 'max(1.5rem, env(safe-area-inset-bottom))' : undefined,
+        paddingTop: position === 'top' ? 'max(0.75rem, env(safe-area-inset-top))' : undefined,
+        paddingBottom: position === 'bottom' ? 'max(0.75rem, env(safe-area-inset-bottom))' : undefined,
       }}
     >
       {/* Target Tile - position based on player */}
