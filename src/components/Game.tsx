@@ -15,8 +15,6 @@ interface DragPosition {
 
 const Game: React.FC = () => {
   const gameContainerRef = useRef<HTMLDivElement>(null);
-  const player1ZoneRef = useRef<HTMLDivElement>(null);
-  const player2ZoneRef = useRef<HTMLDivElement>(null);
   const player1TargetRef = useRef<HTMLDivElement>(null);
   const player2TargetRef = useRef<HTMLDivElement>(null);
 
@@ -43,7 +41,6 @@ const Game: React.FC = () => {
 
   const [dragPosition, setDragPosition] = useState<DragPosition | null>(null);
   const [dragRotation, setDragRotation] = useState<number>(0);
-  const [targetRotation, setTargetRotation] = useState<number>(0);
   const [dragScale, setDragScale] = useState<number>(1.0);
   const [dragStartPosition, setDragStartPosition] = useState<DragPosition | null>(null);
   const [isReturning, setIsReturning] = useState(false);
@@ -115,19 +112,6 @@ const Game: React.FC = () => {
     return clientY < midpoint ? 'player1' : 'player2';
   };
 
-  const isInPlayerZone = (clientX: number, clientY: number, playerId: PlayerId): boolean => {
-    const zoneRef = playerId === 'player1' ? player1ZoneRef : player2ZoneRef;
-    if (!zoneRef.current) return false;
-
-    const rect = zoneRef.current.getBoundingClientRect();
-    return (
-      clientX >= rect.left &&
-      clientX <= rect.right &&
-      clientY >= rect.top &&
-      clientY <= rect.bottom
-    );
-  };
-
   const isOnTargetTile = (clientX: number, clientY: number, playerId: PlayerId): boolean => {
     const targetRef = playerId === 'player1' ? player1TargetRef : player2TargetRef;
     if (!targetRef.current) return false;
@@ -168,7 +152,6 @@ const Game: React.FC = () => {
 
     // Random rotation between -18 and +18 degrees
     const rotation = Math.random() * 36 - 18;
-    setTargetRotation(rotation);
 
     // Animate rotation and scale with easing
     const startTime = Date.now();
@@ -353,7 +336,7 @@ const Game: React.FC = () => {
       onTouchEnd={handleTouchEnd}
     >
       {/* Player 1 Zone - Top */}
-      <div ref={player1ZoneRef}>
+      <div>
         <PlayerZone player={gameState.player1} position="top" targetRef={player1TargetRef} />
       </div>
 
@@ -414,7 +397,7 @@ const Game: React.FC = () => {
       </div>
 
       {/* Player 2 Zone - Bottom */}
-      <div ref={player2ZoneRef}>
+      <div>
         <PlayerZone player={gameState.player2} position="bottom" targetRef={player2TargetRef} />
       </div>
 
