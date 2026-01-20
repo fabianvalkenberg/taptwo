@@ -389,33 +389,33 @@ const Game: React.FC = () => {
       {/* Timer border visualization */}
       {gameState.gameStarted && !gameState.gameEnded && (
         <>
-          {/* Top border */}
+          {/* Top border - right to left (first, 0.75-1.0) */}
           <div
-            className="absolute top-0 left-0 h-2 transition-all duration-1000 ease-linear"
+            className="absolute top-0 right-0 h-2 transition-all duration-1000 ease-linear"
             style={{
               width: timePercentage >= 0.75 ? `${((timePercentage - 0.75) / 0.25) * 100}%` : '0%',
               backgroundColor: timerColor,
             }}
           />
-          {/* Right border */}
+          {/* Left border - top to bottom (second, 0.5-0.75) */}
           <div
-            className="absolute top-0 right-0 w-2 transition-all duration-1000 ease-linear"
+            className="absolute top-0 left-0 w-2 transition-all duration-1000 ease-linear"
             style={{
               height: timePercentage >= 0.5 && timePercentage < 0.75 ? `${((timePercentage - 0.5) / 0.25) * 100}%` : timePercentage >= 0.75 ? '100%' : '0%',
               backgroundColor: timerColor,
             }}
           />
-          {/* Bottom border */}
+          {/* Bottom border - left to right (third, 0.25-0.5) */}
           <div
-            className="absolute bottom-0 right-0 h-2 transition-all duration-1000 ease-linear"
+            className="absolute bottom-0 left-0 h-2 transition-all duration-1000 ease-linear"
             style={{
               width: timePercentage >= 0.25 && timePercentage < 0.5 ? `${((timePercentage - 0.25) / 0.25) * 100}%` : timePercentage >= 0.5 ? '100%' : '0%',
               backgroundColor: timerColor,
             }}
           />
-          {/* Left border */}
+          {/* Right border - bottom to top (fourth, 0.0-0.25) */}
           <div
-            className="absolute bottom-0 left-0 w-2 transition-all duration-1000 ease-linear"
+            className="absolute bottom-0 right-0 w-2 transition-all duration-1000 ease-linear"
             style={{
               height: timePercentage < 0.25 ? `${(timePercentage / 0.25) * 100}%` : timePercentage >= 0.25 ? '100%' : '0%',
               backgroundColor: timerColor,
