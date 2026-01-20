@@ -5,8 +5,9 @@ import { playPickupSound, playCorrectSound, playWrongSound, playReturnSound, pla
 import Tile from './Tile';
 import PlayerZone from './PlayerZone';
 
-const GAME_DURATION = 20; // seconds
+const GAME_DURATION = 30; // seconds
 const FREEZE_DURATION = 3000; // 3 seconds in milliseconds
+const TIMER_WARNING_PERCENTAGE = 0.17; // 17% - when timer turns red
 
 interface DragPosition {
   x: number;
@@ -370,16 +371,58 @@ const Game: React.FC = () => {
     }
   };
 
+  // Calculate timer progress and color
+  const timePercentage = gameState.timeRemaining / GAME_DURATION;
+  const isTimerWarning = timePercentage <= TIMER_WARNING_PERCENTAGE;
+  const timerColor = isTimerWarning ? '#EF4444' : '#EAB308'; // red : yellow
+
   return (
     <div
       ref={gameContainerRef}
-      className="flex flex-col min-h-screen bg-white overflow-hidden touch-none"
+      className="flex flex-col min-h-screen bg-white overflow-hidden touch-none relative"
       style={{ height: '100dvh' }}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
+      {/* Timer border visualization */}
+      {gameState.gameStarted && !gameState.gameEnded && (
+        <>
+          {/* Top border */}
+          <div
+            className="absolute top-0 left-0 h-2 transition-all duration-1000 ease-linear"
+            style={{
+              width: timePercentage >= 0.75 ? `${((timePercentage - 0.75) / 0.25) * 100}%` : '0%',
+              backgroundColor: timerColor,
+            }}
+          />
+          {/* Right border */}
+          <div
+            className="absolute top-0 right-0 w-2 transition-all duration-1000 ease-linear"
+            style={{
+              height: timePercentage >= 0.5 && timePercentage < 0.75 ? `${((timePercentage - 0.5) / 0.25) * 100}%` : timePercentage >= 0.75 ? '100%' : '0%',
+              backgroundColor: timerColor,
+            }}
+          />
+          {/* Bottom border */}
+          <div
+            className="absolute bottom-0 right-0 h-2 transition-all duration-1000 ease-linear"
+            style={{
+              width: timePercentage >= 0.25 && timePercentage < 0.5 ? `${((timePercentage - 0.25) / 0.25) * 100}%` : timePercentage >= 0.5 ? '100%' : '0%',
+              backgroundColor: timerColor,
+            }}
+          />
+          {/* Left border */}
+          <div
+            className="absolute bottom-0 left-0 w-2 transition-all duration-1000 ease-linear"
+            style={{
+              height: timePercentage < 0.25 ? `${(timePercentage / 0.25) * 100}%` : timePercentage >= 0.25 ? '100%' : '0%',
+              backgroundColor: timerColor,
+            }}
+          />
+        </>
+      )}
       {/* Player 1 Zone - Top */}
       <div className="flex-shrink-0">
         <PlayerZone player={gameState.player1} position="top" targetRef={player1TargetRef} />
@@ -396,11 +439,6 @@ const Game: React.FC = () => {
           </button>
         ) : (
           <>
-            {/* Timer in top left corner */}
-            <div className="absolute top-2 left-2 sm:top-4 sm:left-4 text-base sm:text-lg font-semibold bg-white/80 px-2 py-1 rounded">
-              {gameState.timeRemaining}s
-            </div>
-
             {gameState.gameEnded && (
               <div className="flex flex-col items-center gap-4 mb-4">
                 <div className="text-xl sm:text-3xl font-bold text-green-600 text-center px-4">
