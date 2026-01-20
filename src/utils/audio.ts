@@ -7,6 +7,12 @@ const getAudioContext = (): AudioContext => {
   if (!audioContext) {
     audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
   }
+
+  // Resume context if it's suspended (required by browsers)
+  if (audioContext.state === 'suspended') {
+    audioContext.resume();
+  }
+
   return audioContext;
 };
 

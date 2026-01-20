@@ -13,6 +13,15 @@ interface DragPosition {
   y: number;
 }
 
+interface PlayerDragState {
+  tile: TileType;
+  position: DragPosition;
+  startPosition: DragPosition;
+  rotation: number;
+  scale: number;
+  isReturning: boolean;
+}
+
 const Game: React.FC = () => {
   const gameContainerRef = useRef<HTMLDivElement>(null);
   const player1TargetRef = useRef<HTMLDivElement>(null);
@@ -39,11 +48,8 @@ const Game: React.FC = () => {
     gameEnded: false,
   }));
 
-  const [dragPosition, setDragPosition] = useState<DragPosition | null>(null);
-  const [dragRotation, setDragRotation] = useState<number>(0);
-  const [dragScale, setDragScale] = useState<number>(1.0);
-  const [dragStartPosition, setDragStartPosition] = useState<DragPosition | null>(null);
-  const [isReturning, setIsReturning] = useState(false);
+  const [player1Drag, setPlayer1Drag] = useState<PlayerDragState | null>(null);
+  const [player2Drag, setPlayer2Drag] = useState<PlayerDragState | null>(null);
 
   // Generate random delays for tile animations (shuffle order within 2 seconds)
   const [tileAnimationDelays] = useState<number[]>(() => {
@@ -105,6 +111,30 @@ const Game: React.FC = () => {
     setGameState((prev) => ({ ...prev, gameStarted: true }));
   };
 
+  const restartGame = () => {
+    setGameState({
+      tiles: generateInitialTiles(20),
+      player1: {
+        id: 'player1',
+        score: 0,
+        targetTile: generateRandomTile(),
+        isFrozen: false,
+      },
+      player2: {
+        id: 'player2',
+        score: 0,
+        targetTile: generateRandomTile(),
+        isFrozen: false,
+      },
+      draggedTile: null,
+      draggedBy: null,
+      timeRemaining: GAME_DURATION,
+      gameStarted: true,
+      gameEnded: false,
+    });
+    playGameStartSound();
+  };
+
   const determinePlayerByPosition = (clientY: number): PlayerId => {
     if (!gameContainerRef.current) return 'player1';
     const containerRect = gameContainerRef.current.getBoundingClientRect();
@@ -129,29 +159,43 @@ const Game: React.FC = () => {
 
   const handleTilePress = (tile: TileType, clientX: number, clientY: number) => {
     if (gameState.gameEnded) return;
-    if (gameState.draggedTile) return;
 
     const playerId = determinePlayerByPosition(clientY);
     const player = playerId === 'player1' ? gameState.player1 : gameState.player2;
 
     if (player.isFrozen) return;
 
-    setGameState((prev) => ({
-      ...prev,
-      draggedTile: tile,
-      draggedBy: playerId,
-    }));
+    // Check if this player is already dragging
+    const playerDrag = playerId === 'player1' ? player1Drag : player2Drag;
+    if (playerDrag) return;
+
+    // Check if the other player is dragging this tile
+    const otherPlayerDrag = playerId === 'player1' ? player2Drag : player1Drag;
+    if (otherPlayerDrag && otherPlayerDrag.tile.id === tile.id) return;
 
     const startPos = { x: clientX, y: clientY };
-    setDragPosition(startPos);
-    setDragStartPosition(startPos);
-    setIsReturning(false);
 
     // Play pickup sound
     playPickupSound();
 
     // Random rotation between -18 and +18 degrees
     const rotation = Math.random() * 36 - 18;
+
+    // Create initial drag state
+    const dragState: PlayerDragState = {
+      tile,
+      position: startPos,
+      startPosition: startPos,
+      rotation: 0,
+      scale: 1.0,
+      isReturning: false,
+    };
+
+    if (playerId === 'player1') {
+      setPlayer1Drag(dragState);
+    } else {
+      setPlayer2Drag(dragState);
+    }
 
     // Animate rotation and scale with easing
     const startTime = Date.now();
@@ -170,8 +214,11 @@ const Game: React.FC = () => {
       const currentRotation = startRotation + (rotation - startRotation) * easeProgress;
       const currentScale = startScale + (targetScale - startScale) * easeProgress;
 
-      setDragRotation(currentRotation);
-      setDragScale(currentScale);
+      if (playerId === 'player1') {
+        setPlayer1Drag(prev => prev ? { ...prev, rotation: currentRotation, scale: currentScale } : null);
+      } else {
+        setPlayer2Drag(prev => prev ? { ...prev, rotation: currentRotation, scale: currentScale } : null);
+      }
 
       if (progress < 1) {
         requestAnimationFrame(animatePickup);
@@ -181,77 +228,61 @@ const Game: React.FC = () => {
     requestAnimationFrame(animatePickup);
   };
 
-  const handleDragMove = (clientX: number, clientY: number) => {
-    if (gameState.draggedTile && dragPosition && !isReturning) {
-      setDragPosition({ x: clientX, y: clientY });
+  const handleDragMove = (clientX: number, clientY: number, playerId: PlayerId) => {
+    if (playerId === 'player1' && player1Drag && !player1Drag.isReturning) {
+      setPlayer1Drag(prev => prev ? { ...prev, position: { x: clientX, y: clientY } } : null);
+    } else if (playerId === 'player2' && player2Drag && !player2Drag.isReturning) {
+      setPlayer2Drag(prev => prev ? { ...prev, position: { x: clientX, y: clientY } } : null);
     }
   };
 
-  const handleTileRelease = (clientX: number, clientY: number) => {
-    if (!gameState.draggedTile || !gameState.draggedBy) {
-      setDragPosition(null);
-      setDragStartPosition(null);
-      return;
-    }
+  const handleTileRelease = (clientX: number, clientY: number, playerId: PlayerId) => {
+    const playerDrag = playerId === 'player1' ? player1Drag : player2Drag;
+    const setPlayerDrag = playerId === 'player1' ? setPlayer1Drag : setPlayer2Drag;
+
+    if (!playerDrag) return;
+
+    const player = playerId === 'player1' ? gameState.player1 : gameState.player2;
 
     // Check if released on the target tile
-    if (!isOnTargetTile(clientX, clientY, gameState.draggedBy)) {
+    if (!isOnTargetTile(clientX, clientY, playerId)) {
       // Not in zone, animate tile back to start position
       playReturnSound();
 
-      if (dragStartPosition) {
-        setIsReturning(true);
+      setPlayerDrag(prev => prev ? { ...prev, isReturning: true } : null);
 
-        // Animate back over 300ms
-        const startTime = Date.now();
-        const duration = 300;
-        const startX = dragPosition?.x || clientX;
-        const startY = dragPosition?.y || clientY;
+      // Animate back over 300ms
+      const startTime = Date.now();
+      const duration = 300;
+      const startX = playerDrag.position.x;
+      const startY = playerDrag.position.y;
 
-        const animate = () => {
-          const elapsed = Date.now() - startTime;
-          const progress = Math.min(elapsed / duration, 1);
+      const animate = () => {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(elapsed / duration, 1);
 
-          // Ease-out cubic for smooth deceleration
-          const easeProgress = 1 - Math.pow(1 - progress, 3);
+        // Ease-out cubic for smooth deceleration
+        const easeProgress = 1 - Math.pow(1 - progress, 3);
 
-          const currentX = startX + (dragStartPosition.x - startX) * easeProgress;
-          const currentY = startY + (dragStartPosition.y - startY) * easeProgress;
+        const currentX = startX + (playerDrag.startPosition.x - startX) * easeProgress;
+        const currentY = startY + (playerDrag.startPosition.y - startY) * easeProgress;
 
-          setDragPosition({ x: currentX, y: currentY });
+        setPlayerDrag(prev => prev ? { ...prev, position: { x: currentX, y: currentY } } : null);
 
-          if (progress < 1) {
-            requestAnimationFrame(animate);
-          } else {
-            // Animation complete, reset state
-            setGameState((prev) => ({
-              ...prev,
-              draggedTile: null,
-              draggedBy: null,
-            }));
-            setDragPosition(null);
-            setDragStartPosition(null);
-            setIsReturning(false);
-          }
-        };
+        if (progress < 1) {
+          requestAnimationFrame(animate);
+        } else {
+          // Animation complete, reset state
+          setPlayerDrag(null);
+        }
+      };
 
-        requestAnimationFrame(animate);
-      } else {
-        // Fallback if no start position
-        setGameState((prev) => ({
-          ...prev,
-          draggedTile: null,
-          draggedBy: null,
-        }));
-        setDragPosition(null);
-        setDragStartPosition(null);
-      }
+      requestAnimationFrame(animate);
       return;
     }
 
-    const player = gameState.draggedBy === 'player1' ? gameState.player1 : gameState.player2;
-    const score = calculateScore(gameState.draggedTile, player.targetTile);
-    const tileIndex = gameState.tiles.findIndex((t) => t.id === gameState.draggedTile!.id);
+    const score = calculateScore(playerDrag.tile, player.targetTile);
+    const tileIndex = gameState.tiles.findIndex((t) => t.id === playerDrag.tile.id);
 
     // Always replace the tile when dropped in zone
     const newTiles = [...gameState.tiles];
@@ -264,12 +295,10 @@ const Game: React.FC = () => {
       setGameState((prev) => ({
         ...prev,
         tiles: newTiles,
-        [gameState.draggedBy!]: {
+        [playerId]: {
           ...player,
           score: player.score + score,
         },
-        draggedTile: null,
-        draggedBy: null,
       }));
     } else {
       // Wrong match - freeze player but still replace tile
@@ -278,20 +307,19 @@ const Game: React.FC = () => {
       setGameState((prev) => ({
         ...prev,
         tiles: newTiles,
-        [gameState.draggedBy!]: {
+        [playerId]: {
           ...player,
           isFrozen: true,
           frozenUntil: Date.now() + FREEZE_DURATION,
         },
-        draggedTile: null,
-        draggedBy: null,
       }));
     }
 
-    setDragPosition(null);
-    setDragStartPosition(null);
-    setIsReturning(false);
+    setPlayerDrag(null);
   };
+
+  // Track which touch ID belongs to which player
+  const touchTracker = useRef<Map<number, PlayerId>>(new Map());
 
   const handleMouseDown = (tile: TileType, e: React.MouseEvent) => {
     e.preventDefault();
@@ -299,29 +327,46 @@ const Game: React.FC = () => {
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    handleDragMove(e.clientX, e.clientY);
+    const playerId = determinePlayerByPosition(e.clientY);
+    handleDragMove(e.clientX, e.clientY, playerId);
   };
 
   const handleMouseUp = (e: React.MouseEvent) => {
-    handleTileRelease(e.clientX, e.clientY);
+    const playerId = determinePlayerByPosition(e.clientY);
+    handleTileRelease(e.clientX, e.clientY, playerId);
   };
 
   const handleTouchStart = (tile: TileType, e: React.TouchEvent) => {
     e.preventDefault();
-    if (e.touches.length > 0) {
-      handleTilePress(tile, e.touches[0].clientX, e.touches[0].clientY);
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const touch = e.changedTouches[i];
+      const playerId = determinePlayerByPosition(touch.clientY);
+
+      // Store which touch belongs to which player
+      touchTracker.current.set(touch.identifier, playerId);
+
+      handleTilePress(tile, touch.clientX, touch.clientY);
     }
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (e.touches.length > 0) {
-      handleDragMove(e.touches[0].clientX, e.touches[0].clientY);
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const touch = e.changedTouches[i];
+      const playerId = touchTracker.current.get(touch.identifier);
+      if (playerId) {
+        handleDragMove(touch.clientX, touch.clientY, playerId);
+      }
     }
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
-    if (e.changedTouches.length > 0) {
-      handleTileRelease(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const touch = e.changedTouches[i];
+      const playerId = touchTracker.current.get(touch.identifier);
+      if (playerId) {
+        handleTileRelease(touch.clientX, touch.clientY, playerId);
+        touchTracker.current.delete(touch.identifier);
+      }
     }
   };
 
@@ -357,20 +402,29 @@ const Game: React.FC = () => {
             </div>
 
             {gameState.gameEnded && (
-              <div className="mb-2 sm:mb-4 text-xl sm:text-3xl font-bold text-green-600 text-center px-4">
-                Game Over!
-                {gameState.player1.score > gameState.player2.score
-                  ? ' Player 1 Wins!'
-                  : gameState.player2.score > gameState.player1.score
-                  ? ' Player 2 Wins!'
-                  : ' Tie!'}
+              <div className="flex flex-col items-center gap-4 mb-4">
+                <div className="text-xl sm:text-3xl font-bold text-green-600 text-center px-4">
+                  Game Over!
+                  {gameState.player1.score > gameState.player2.score
+                    ? ' Player 1 Wins!'
+                    : gameState.player2.score > gameState.player1.score
+                    ? ' Player 2 Wins!'
+                    : ' Tie!'}
+                </div>
+                <button
+                  onClick={restartGame}
+                  className="px-6 py-3 bg-blue-500 text-white text-lg sm:text-xl font-bold rounded-lg active:bg-blue-600 touch-manipulation"
+                >
+                  Restart Game
+                </button>
               </div>
             )}
 
-            <div className="grid grid-cols-4 gap-2 w-full max-w-[min(90vw,400px)]">
+            <div className="grid grid-cols-4 gap-[20px] w-full px-[36px]">
               {gameState.tiles.map((tile, index) => {
-                const isDragged = gameState.draggedTile?.id === tile.id;
-                const isDraggedAndNotReturning = isDragged && !isReturning;
+                const isDraggedByPlayer1 = player1Drag?.tile.id === tile.id && !player1Drag.isReturning;
+                const isDraggedByPlayer2 = player2Drag?.tile.id === tile.id && !player2Drag.isReturning;
+                const isDraggedAndNotReturning = isDraggedByPlayer1 || isDraggedByPlayer2;
                 return (
                   <div
                     key={tile.id}
@@ -401,19 +455,33 @@ const Game: React.FC = () => {
         <PlayerZone player={gameState.player2} position="bottom" targetRef={player2TargetRef} />
       </div>
 
-      {/* Floating dragged tile */}
-      {gameState.draggedTile && dragPosition && !isReturning && (
+      {/* Floating dragged tiles */}
+      {player1Drag && !player1Drag.isReturning && (
         <div
           className="fixed pointer-events-none z-50"
           style={{
-            left: dragPosition.x,
-            top: dragPosition.y,
-            transform: `translate(-50%, -50%) scale(${dragScale}) rotate(${dragRotation}deg)`,
+            left: player1Drag.position.x,
+            top: player1Drag.position.y,
+            transform: `translate(-50%, -50%) scale(${player1Drag.scale}) rotate(${player1Drag.rotation}deg)`,
             filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.15))',
             transition: 'filter 0.2s ease-out',
           }}
         >
-          <Tile tile={gameState.draggedTile} />
+          <Tile tile={player1Drag.tile} />
+        </div>
+      )}
+      {player2Drag && !player2Drag.isReturning && (
+        <div
+          className="fixed pointer-events-none z-50"
+          style={{
+            left: player2Drag.position.x,
+            top: player2Drag.position.y,
+            transform: `translate(-50%, -50%) scale(${player2Drag.scale}) rotate(${player2Drag.rotation}deg)`,
+            filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.15))',
+            transition: 'filter 0.2s ease-out',
+          }}
+        >
+          <Tile tile={player2Drag.tile} />
         </div>
       )}
     </div>
